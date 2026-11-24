@@ -1,0 +1,223 @@
+{
+  "entities": {
+    "Merchant": {
+      "title": "Merchant",
+      "description": "Profil commerçant KOMBA BOOST avec abonnement, statistiques et statut de compte.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "UID Firebase de l'utilisateur propriétaire" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "businessName": { "type": "string" },
+        "businessCategory": {
+          "type": "string",
+          "enum": ["vetements", "restaurant", "cosmetiques", "chaussures", "divers"]
+        },
+        "phone": { "type": "string" },
+        "plan": {
+          "type": "string",
+          "enum": ["decouverte", "business", "premium"]
+        },
+        "subscriptionStatus": {
+          "type": "string",
+          "enum": ["active", "pending", "expired"]
+        },
+        "accountStatus": {
+          "type": "string",
+          "enum": ["active", "suspended"]
+        },
+        "renewalDate": { "type": "string", "format": "date-time" },
+        "creationsCount": { "type": "integer" },
+        "postsCount": { "type": "integer" },
+        "productsCount": { "type": "integer" },
+        "sharesCount": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp via FieldValue.serverTimestamp()" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp via FieldValue.serverTimestamp()" }
+      },
+      "required": [
+        "userId", "email", "displayName", "businessName", "businessCategory",
+        "plan", "subscriptionStatus", "accountStatus",
+        "creationsCount", "postsCount", "productsCount", "sharesCount",
+        "createdAt", "updatedAt"
+      ]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Produit enregistré dans le catalogue du commerçant.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "priceFcfa": { "type": "integer" },
+        "category": { "type": "string" },
+        "description": { "type": "string" },
+        "imageBase64": { "type": "string" },
+        "available": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "name", "priceFcfa", "category", "description", "available", "createdAt", "updatedAt"]
+    },
+    "Poster": {
+      "title": "Poster",
+      "description": "Affiche publicitaire créée dans le Studio d'affiches.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "productName": { "type": "string" },
+        "priceFcfa": { "type": "integer" },
+        "description": { "type": "string" },
+        "templateId": {
+          "type": "string",
+          "enum": ["vetements_luxe", "resto_saveurs", "cosmetique_eclat", "chaussures_urban", "promo_flash"]
+        },
+        "promoBadge": { "type": "string" },
+        "contactPhone": { "type": "string" },
+        "imageBase64": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "productName", "priceFcfa", "description", "templateId", "promoBadge", "contactPhone", "createdAt", "updatedAt"]
+    },
+    "SocialPost": {
+      "title": "SocialPost",
+      "description": "Publication commerciale générée dans le Studio de publications.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "productName": { "type": "string" },
+        "priceFcfa": { "type": "integer" },
+        "platform": { "type": "string", "enum": ["whatsapp", "facebook", "instagram"] },
+        "style": { "type": "string", "enum": ["direct", "chaleureux", "urgence", "premium"] },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "productName", "priceFcfa", "platform", "style", "content", "createdAt", "updatedAt"]
+    },
+    "CalendarEvent": {
+      "title": "CalendarEvent",
+      "description": "Événement ou campagne planifiée dans le calendrier commercial.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "platform": { "type": "string", "enum": ["whatsapp", "facebook", "instagram"] },
+        "campaignType": { "type": "string" },
+        "scheduledDateEpochMs": { "type": "integer" },
+        "notes": { "type": "string" },
+        "status": { "type": "string", "enum": ["planned", "reminded", "done"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "platform", "campaignType", "scheduledDateEpochMs", "notes", "status", "createdAt", "updatedAt"]
+    },
+    "Customer": {
+      "title": "Customer",
+      "description": "Client fidélisé enregistré avec consentement explicite.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "consentGranted": { "type": "boolean" },
+        "notes": { "type": "string" },
+        "lastOfferSent": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "name", "phone", "consentGranted", "notes", "lastOfferSent", "createdAt", "updatedAt"]
+    },
+    "SubscriptionPlan": {
+      "title": "SubscriptionPlan",
+      "description": "Offre d'abonnement configurable par l'administration.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "priceFcfa": { "type": "integer" },
+        "maxPostersPerMonth": { "type": "integer" },
+        "maxProducts": { "type": "integer" },
+        "maxPostsPerMonth": { "type": "integer" },
+        "maxCustomers": { "type": "integer" },
+        "featuresSummary": { "type": "string" },
+        "active": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "priceFcfa", "maxPostersPerMonth", "maxProducts", "maxPostsPerMonth", "maxCustomers", "featuresSummary", "active", "updatedAt"]
+    },
+    "PaymentRequest": {
+      "title": "PaymentRequest",
+      "description": "Preuve de paiement Mobile Money / Airtel Money soumise pour validation manuelle.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "merchantName": { "type": "string" },
+        "merchantEmail": { "type": "string" },
+        "planId": { "type": "string", "enum": ["business", "premium"] },
+        "amountFcfa": { "type": "integer" },
+        "provider": { "type": "string", "enum": ["airtel_money", "moov_money"] },
+        "senderPhone": { "type": "string" },
+        "transactionRef": { "type": "string" },
+        "proofNote": { "type": "string" },
+        "proofImageBase64": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "adminNote": { "type": "string" },
+        "reviewedBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "userId", "merchantName", "merchantEmail", "planId", "amountFcfa",
+        "provider", "senderPhone", "transactionRef", "proofNote",
+        "status", "adminNote", "reviewedBy", "createdAt", "updatedAt"
+      ]
+    },
+    "AdminMarker": {
+      "title": "AdminMarker",
+      "description": "Marqueur serveur d'autorisation administrateur.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" }
+      },
+      "required": ["email"]
+    }
+  },
+  "firestore": {
+    "/merchants/{userId}": {
+      "schema": { "$ref": "#/entities/Merchant" },
+      "description": "Profils des commerçants et métriques d'abonnement"
+    },
+    "/merchants/{userId}/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Catalogue produits d'un commerçant"
+    },
+    "/merchants/{userId}/posters/{posterId}": {
+      "schema": { "$ref": "#/entities/Poster" },
+      "description": "Affiches publicitaires créées par un commerçant"
+    },
+    "/merchants/{userId}/posts/{postId}": {
+      "schema": { "$ref": "#/entities/SocialPost" },
+      "description": "Publications commerciales préparées par un commerçant"
+    },
+    "/merchants/{userId}/calendar/{eventId}": {
+      "schema": { "$ref": "#/entities/CalendarEvent" },
+      "description": "Calendrier de publications et campagnes d'un commerçant"
+    },
+    "/merchants/{userId}/customers/{customerId}": {
+      "schema": { "$ref": "#/entities/Customer" },
+      "description": "Clients fidélisés avec consentement"
+    },
+    "/subscription_plans/{planId}": {
+      "schema": { "$ref": "#/entities/SubscriptionPlan" },
+      "description": "Offres d'abonnements configurables"
+    },
+    "/payments/{paymentId}": {
+      "schema": { "$ref": "#/entities/PaymentRequest" },
+      "description": "Demandes de paiement Mobile Money / Airtel Money en attente de validation"
+    },
+    "/admins/{uid}": {
+      "schema": { "$ref": "#/entities/AdminMarker" },
+      "description": "Registre sécurisé des administrateurs"
+    }
+  }
+}

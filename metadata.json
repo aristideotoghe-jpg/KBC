@@ -1,0 +1,6 @@
+{
+  "name": "KOMBA BOOST",
+  "description": "Plateforme commerciale mobile pour aider les commerçants et entrepreneurs à créer des affiches, gérer leur catalogue, préparer leurs publications et fidéliser leurs clients.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

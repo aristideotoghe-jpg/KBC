@@ -1,0 +1,397 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Server-side admin verification: bootstrapped verified owner email OR /admins/{uid} document
+    function isAdmin() {
+      return isSignedIn() && (
+        ('email' in request.auth.token &&
+         'email_verified' in request.auth.token &&
+         request.auth.token.email == 'mitchdubois0789@gmail.com' &&
+         request.auth.token.email_verified == true) ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isMerchantActive(userId) {
+      return exists(/databases/$(database)/documents/merchants/$(userId)) &&
+             get(/databases/$(database)/documents/merchants/$(userId)).data.accountStatus == 'active';
+    }
+
+    function isValidMerchant(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.email is string && data.email.size() >= 3 && data.email.size() <= 160 &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100 &&
+             data.businessName is string && data.businessName.size() >= 1 && data.businessName.size() <= 100 &&
+             data.businessCategory in ['vetements', 'restaurant', 'cosmetiques', 'chaussures', 'divers'] &&
+             (!('phone' in data) || (data.phone is string && data.phone.size() <= 30)) &&
+             data.plan in ['decouverte', 'business', 'premium'] &&
+             data.subscriptionStatus in ['active', 'pending', 'expired'] &&
+             data.accountStatus in ['active', 'suspended'] &&
+             (!('renewalDate' in data) || data.renewalDate is timestamp) &&
+             data.creationsCount is int && data.creationsCount >= 0 && data.creationsCount <= 1000000 &&
+             data.postsCount is int && data.postsCount >= 0 && data.postsCount <= 1000000 &&
+             data.productsCount is int && data.productsCount >= 0 && data.productsCount <= 1000000 &&
+             data.sharesCount is int && data.sharesCount >= 0 && data.sharesCount <= 1000000 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidProduct(data, userId) {
+      return data.userId == userId &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
+             data.priceFcfa is int && data.priceFcfa >= 0 && data.priceFcfa <= 100000000 &&
+             data.category is string && data.category.size() >= 1 && data.category.size() <= 60 &&
+             data.description is string && data.description.size() <= 600 &&
+             (!('imageBase64' in data) || (data.imageBase64 is string && data.imageBase64.size() <= 400000)) &&
+             data.available is bool &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidPoster(data, userId) {
+      return data.userId == userId &&
+             data.productName is string && data.productName.size() >= 1 && data.productName.size() <= 100 &&
+             data.priceFcfa is int && data.priceFcfa >= 0 && data.priceFcfa <= 100000000 &&
+             data.description is string && data.description.size() <= 400 &&
+             data.templateId in ['vetements_luxe', 'resto_saveurs', 'cosmetique_eclat', 'chaussures_urban', 'promo_flash'] &&
+             data.promoBadge is string && data.promoBadge.size() <= 30 &&
+             data.contactPhone is string && data.contactPhone.size() <= 30 &&
+             (!('imageBase64' in data) || (data.imageBase64 is string && data.imageBase64.size() <= 400000)) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidPost(data, userId) {
+      return data.userId == userId &&
+             data.productName is string && data.productName.size() >= 1 && data.productName.size() <= 100 &&
+             data.priceFcfa is int && data.priceFcfa >= 0 && data.priceFcfa <= 100000000 &&
+             data.platform in ['whatsapp', 'facebook', 'instagram'] &&
+             data.style in ['direct', 'chaleureux', 'urgence', 'premium'] &&
+             data.content is string && data.content.size() >= 1 && data.content.size() <= 2500 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidCalendarEvent(data, userId) {
+      return data.userId == userId &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
+             data.platform in ['whatsapp', 'facebook', 'instagram'] &&
+             data.campaignType is string && data.campaignType.size() >= 1 && data.campaignType.size() <= 60 &&
+             data.scheduledDateEpochMs is int && data.scheduledDateEpochMs > 0 &&
+             data.notes is string && data.notes.size() <= 500 &&
+             data.status in ['planned', 'reminded', 'done'] &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidCustomer(data, userId) {
+      return data.userId == userId &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
+             data.phone is string && data.phone.size() >= 4 && data.phone.size() <= 30 &&
+             data.consentGranted is bool && data.consentGranted == true &&
+             data.notes is string && data.notes.size() <= 400 &&
+             data.lastOfferSent is string && data.lastOfferSent.size() <= 200 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidSubscriptionPlan(data) {
+      return data.name is string && data.name.size() >= 1 && data.name.size() <= 40 &&
+             data.priceFcfa is int && data.priceFcfa >= 0 && data.priceFcfa <= 1000000 &&
+             data.maxPostersPerMonth is int && data.maxPostersPerMonth >= 1 && data.maxPostersPerMonth <= 100000 &&
+             data.maxProducts is int && data.maxProducts >= 1 && data.maxProducts <= 100000 &&
+             data.maxPostsPerMonth is int && data.maxPostsPerMonth >= 1 && data.maxPostsPerMonth <= 100000 &&
+             data.maxCustomers is int && data.maxCustomers >= 1 && data.maxCustomers <= 100000 &&
+             data.featuresSummary is string && data.featuresSummary.size() >= 1 && data.featuresSummary.size() <= 400 &&
+             data.active is bool &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidPayment(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.merchantName is string && data.merchantName.size() >= 1 && data.merchantName.size() <= 120 &&
+             data.merchantEmail is string && data.merchantEmail.size() >= 3 && data.merchantEmail.size() <= 160 &&
+             data.planId in ['business', 'premium'] &&
+             data.amountFcfa is int && data.amountFcfa > 0 && data.amountFcfa <= 1000000 &&
+             data.provider in ['airtel_money', 'moov_money'] &&
+             data.senderPhone is string && data.senderPhone.size() >= 6 && data.senderPhone.size() <= 30 &&
+             data.transactionRef is string && data.transactionRef.size() >= 4 && data.transactionRef.size() <= 80 &&
+             data.proofNote is string && data.proofNote.size() <= 400 &&
+             (!('proofImageBase64' in data) || (data.proofImageBase64 is string && data.proofImageBase64.size() <= 400000)) &&
+             data.status in ['pending', 'approved', 'rejected'] &&
+             data.adminNote is string && data.adminNote.size() <= 300 &&
+             data.reviewedBy is string && data.reviewedBy.size() <= 160 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    // 1. Merchants & Subcollections
+    match /merchants/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isAdmin();
+
+      allow create: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().plan == 'decouverte' &&
+                       incoming().subscriptionStatus == 'active' &&
+                       incoming().accountStatus == 'active' &&
+                       !('renewalDate' in incoming()) &&
+                       incoming().creationsCount == 0 &&
+                       incoming().postsCount == 0 &&
+                       incoming().productsCount == 0 &&
+                       incoming().sharesCount == 0 &&
+                       incoming().keys().hasAll([
+                         'userId', 'email', 'displayName', 'businessName', 'businessCategory',
+                         'plan', 'subscriptionStatus', 'accountStatus',
+                         'creationsCount', 'postsCount', 'productsCount', 'sharesCount',
+                         'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'email', 'displayName', 'businessName', 'businessCategory',
+                         'phone', 'plan', 'subscriptionStatus', 'accountStatus',
+                         'creationsCount', 'postsCount', 'productsCount', 'sharesCount',
+                         'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidMerchant(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(userId) &&
+                       isValidMerchant(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().email == existing().email &&
+                       incoming().createdAt == existing().createdAt && (
+                         (isAdmin() &&
+                          incoming().diff(existing()).affectedKeys().hasOnly([
+                            'plan', 'subscriptionStatus', 'accountStatus', 'renewalDate', 'updatedAt'
+                          ])) ||
+                         (isOwner(userId) &&
+                          existing().accountStatus == 'active' &&
+                          incoming().diff(existing()).affectedKeys().hasOnly([
+                            'displayName', 'businessName', 'businessCategory', 'phone',
+                            'creationsCount', 'postsCount', 'productsCount', 'sharesCount', 'updatedAt'
+                          ]))
+                       );
+
+      allow delete: if isAdmin() && isValidId(userId);
+
+      // Products subcollection
+      match /products/{productId} {
+        allow get: if isSignedIn() && isValidId(productId) && (isOwner(userId) || isAdmin());
+        allow list: if isSignedIn() && (isOwner(userId) || isAdmin());
+
+        allow create: if isOwner(userId) &&
+                         isValidId(productId) &&
+                         isMerchantActive(userId) &&
+                         incoming().keys().hasAll(['userId', 'name', 'priceFcfa', 'category', 'description', 'available', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'name', 'priceFcfa', 'category', 'description', 'imageBase64', 'available', 'createdAt', 'updatedAt']) &&
+                         isValidProduct(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(productId) &&
+                         isMerchantActive(userId) &&
+                         isValidProduct(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'name', 'priceFcfa', 'category', 'description', 'imageBase64', 'available', 'updatedAt'
+                         ]);
+
+        allow delete: if isSignedIn() && isValidId(productId) && (isOwner(userId) || isAdmin());
+      }
+
+      // Posters subcollection
+      match /posters/{posterId} {
+        allow get: if isSignedIn() && isValidId(posterId) && (isOwner(userId) || isAdmin());
+        allow list: if isSignedIn() && (isOwner(userId) || isAdmin());
+
+        allow create: if isOwner(userId) &&
+                         isValidId(posterId) &&
+                         isMerchantActive(userId) &&
+                         incoming().keys().hasAll(['userId', 'productName', 'priceFcfa', 'description', 'templateId', 'promoBadge', 'contactPhone', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'productName', 'priceFcfa', 'description', 'templateId', 'promoBadge', 'contactPhone', 'imageBase64', 'createdAt', 'updatedAt']) &&
+                         isValidPoster(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(posterId) &&
+                         isMerchantActive(userId) &&
+                         isValidPoster(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'productName', 'priceFcfa', 'description', 'templateId', 'promoBadge', 'contactPhone', 'imageBase64', 'updatedAt'
+                         ]);
+
+        allow delete: if isSignedIn() && isValidId(posterId) && (isOwner(userId) || isAdmin());
+      }
+
+      // Social posts subcollection
+      match /posts/{postId} {
+        allow get: if isSignedIn() && isValidId(postId) && (isOwner(userId) || isAdmin());
+        allow list: if isSignedIn() && (isOwner(userId) || isAdmin());
+
+        allow create: if isOwner(userId) &&
+                         isValidId(postId) &&
+                         isMerchantActive(userId) &&
+                         incoming().keys().hasAll(['userId', 'productName', 'priceFcfa', 'platform', 'style', 'content', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'productName', 'priceFcfa', 'platform', 'style', 'content', 'createdAt', 'updatedAt']) &&
+                         isValidPost(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(postId) &&
+                         isMerchantActive(userId) &&
+                         isValidPost(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'productName', 'priceFcfa', 'platform', 'style', 'content', 'updatedAt'
+                         ]);
+
+        allow delete: if isSignedIn() && isValidId(postId) && (isOwner(userId) || isAdmin());
+      }
+
+      // Calendar subcollection
+      match /calendar/{eventId} {
+        allow get: if isSignedIn() && isValidId(eventId) && (isOwner(userId) || isAdmin());
+        allow list: if isSignedIn() && (isOwner(userId) || isAdmin());
+
+        allow create: if isOwner(userId) &&
+                         isValidId(eventId) &&
+                         isMerchantActive(userId) &&
+                         incoming().keys().hasAll(['userId', 'title', 'platform', 'campaignType', 'scheduledDateEpochMs', 'notes', 'status', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'title', 'platform', 'campaignType', 'scheduledDateEpochMs', 'notes', 'status', 'createdAt', 'updatedAt']) &&
+                         isValidCalendarEvent(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(eventId) &&
+                         isMerchantActive(userId) &&
+                         isValidCalendarEvent(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'title', 'platform', 'campaignType', 'scheduledDateEpochMs', 'notes', 'status', 'updatedAt'
+                         ]);
+
+        allow delete: if isSignedIn() && isValidId(eventId) && (isOwner(userId) || isAdmin());
+      }
+
+      // Customers (Fidélisation) subcollection
+      match /customers/{customerId} {
+        allow get: if isSignedIn() && isValidId(customerId) && (isOwner(userId) || isAdmin());
+        allow list: if isSignedIn() && (isOwner(userId) || isAdmin());
+
+        allow create: if isOwner(userId) &&
+                         isValidId(customerId) &&
+                         isMerchantActive(userId) &&
+                         incoming().keys().hasAll(['userId', 'name', 'phone', 'consentGranted', 'notes', 'lastOfferSent', 'createdAt', 'updatedAt']) &&
+                         incoming().keys().hasOnly(['userId', 'name', 'phone', 'consentGranted', 'notes', 'lastOfferSent', 'createdAt', 'updatedAt']) &&
+                         isValidCustomer(incoming(), userId);
+
+        allow update: if isOwner(userId) &&
+                         isValidId(customerId) &&
+                         isMerchantActive(userId) &&
+                         isValidCustomer(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'name', 'phone', 'consentGranted', 'notes', 'lastOfferSent', 'updatedAt'
+                         ]);
+
+        allow delete: if isSignedIn() && isValidId(customerId) && (isOwner(userId) || isAdmin());
+      }
+    }
+
+    // 2. Configurable Subscription Plans
+    match /subscription_plans/{planId} {
+      allow get: if isSignedIn() && planId in ['decouverte', 'business', 'premium'];
+      allow list: if isSignedIn();
+
+      allow create: if isAdmin() &&
+                       planId in ['decouverte', 'business', 'premium'] &&
+                       incoming().keys().hasAll(['name', 'priceFcfa', 'maxPostersPerMonth', 'maxProducts', 'maxPostsPerMonth', 'maxCustomers', 'featuresSummary', 'active', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['name', 'priceFcfa', 'maxPostersPerMonth', 'maxProducts', 'maxPostsPerMonth', 'maxCustomers', 'featuresSummary', 'active', 'updatedAt']) &&
+                       isValidSubscriptionPlan(incoming());
+
+      allow update: if isAdmin() &&
+                       planId in ['decouverte', 'business', 'premium'] &&
+                       isValidSubscriptionPlan(incoming()) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'name', 'priceFcfa', 'maxPostersPerMonth', 'maxProducts', 'maxPostsPerMonth', 'maxCustomers', 'featuresSummary', 'active', 'updatedAt'
+                       ]);
+
+      allow delete: if false;
+    }
+
+    // 3. Mobile Money / Airtel Money Payments
+    match /payments/{paymentId} {
+      allow get: if isSignedIn() && isValidId(paymentId) && (existing().userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+
+      allow create: if isSignedIn() &&
+                       isValidId(paymentId) &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().status == 'pending' &&
+                       incoming().adminNote == '' &&
+                       incoming().reviewedBy == '' &&
+                       isMerchantActive(request.auth.uid) &&
+                       incoming().keys().hasAll([
+                         'userId', 'merchantName', 'merchantEmail', 'planId', 'amountFcfa',
+                         'provider', 'senderPhone', 'transactionRef', 'proofNote',
+                         'status', 'adminNote', 'reviewedBy', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'merchantName', 'merchantEmail', 'planId', 'amountFcfa',
+                         'provider', 'senderPhone', 'transactionRef', 'proofNote', 'proofImageBase64',
+                         'status', 'adminNote', 'reviewedBy', 'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidPayment(incoming());
+
+      allow update: if isAdmin() &&
+                       isValidId(paymentId) &&
+                       isValidPayment(incoming()) &&
+                       existing().status == 'pending' &&
+                       incoming().status in ['approved', 'rejected'] &&
+                       incoming().userId == existing().userId &&
+                       incoming().planId == existing().planId &&
+                       incoming().amountFcfa == existing().amountFcfa &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'status', 'adminNote', 'reviewedBy', 'updatedAt'
+                       ]);
+
+      allow delete: if false;
+    }
+
+    // 4. Admins registry (read-only self check; managed server-side / console)
+    match /admins/{uid} {
+      allow get: if isSignedIn() && request.auth.uid == uid;
+      allow list, create, update, delete: if false;
+    }
+  }
+}
